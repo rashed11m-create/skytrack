@@ -1,13 +1,18 @@
-exports.handler = async function () {
+exports.handler = async function (event) {
   try {
-    const response = await fetch(
-      "https://api.adsb.lol/v2/point/25.4052/55.5136/100"
-    );
+    const params = event.queryStringParameters || {};
+
+    const lat = Math.max(-90, Math.min(90, Number(params.lat) || 25.4052));
+    const lon = Math.max(-180, Math.min(180, Number(params.lon) || 55.5136));
+    const radius = Math.max(10, Math.min(250, Number(params.radius) || 100));
+
+    const url = `https://api.adsb.lol/v2/point/${lat}/${lon}/${radius}`;
+    const response = await fetch(url);
 
     if (!response.ok) {
       return {
         statusCode: response.status,
-        body: "Aircraft data unavailable"
+        body: JSON.stringify({ error: "Aircraft data unavailable" })
       };
     }
 
@@ -17,7 +22,8 @@ exports.handler = async function () {
       statusCode: 200,
       headers: {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=10"
       },
       body: JSON.stringify(data)
     };
