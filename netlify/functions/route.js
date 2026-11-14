@@ -1,27 +1,22 @@
 exports.handler = async function (event) {
   try {
-    const callsign = (event.queryStringParameters?.callsign || "")
-      .trim()
-      .toUpperCase();
+    const params = event.queryStringParameters || {};
+    const callsign = (params.callsign || "").trim().toUpperCase();
+    const lat = Number(params.lat);
+    const lng = Number(params.lng);
 
-    const lat = Number(event.queryStringParameters?.lat) || 0;
-    const lng = Number(event.queryStringParameters?.lng) || 0;
-
-    if (!callsign) {
+    if (!callsign || !Number.isFinite(lat) || !Number.isFinite(lng)) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Missing callsign" })
+        body: JSON.stringify({ error: "Invalid flight details" })
       };
     }
 
     const response = await fetch(
-      "https://api.adsb.lol/api/0/routeset/",
+      "https://api.adsb.lol/api/0/routeset",
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planes: [{ callsign, lat, lng }]
         })
@@ -36,6 +31,7 @@ exports.handler = async function (event) {
     }
 
     const data = await response.json();
+    const flight = Array.isArray(data) ? data[0] : null;
 
     return {
       statusCode: 200,
@@ -43,7 +39,12 @@ exports.handler = async function (event) {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*"
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify({
+        callsign,
+        departure: flight?._airports?.[0] || null,
+        arrival: flight?._airports?.[1] || null,
+        plausible: flight?.plausible ?? null
+      })
     };
 
   } catch (error) {
