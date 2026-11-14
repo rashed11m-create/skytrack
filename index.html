@@ -612,6 +612,147 @@ applySettings();
 loadAircraft();
 renderHistory();
 </script>
+ <style>
+#skyAIButton{
+position:fixed;
+bottom:20px;
+right:18px;
+z-index:2000;
+border-radius:50px;
+padding:15px 20px;
+box-shadow:0 4px 20px #0008;
+}
+#skyAIBox{
+display:none;
+position:fixed;
+bottom:85px;
+right:15px;
+width:min(360px,calc(100vw - 30px));
+height:480px;
+max-height:70vh;
+z-index:2000;
+background:var(--panel);
+border:1px solid var(--line);
+border-radius:16px;
+overflow:hidden;
+box-shadow:0 5px 30px #0009;
+}
+#skyAIHeader{
+padding:15px;
+background:#102139;
+color:white;
+font-weight:bold;
+}
+#skyAIMessages{
+height:calc(100% - 125px);
+overflow-y:auto;
+padding:12px;
+}
+.skyAIMsg{
+padding:10px 12px;
+margin:8px 0;
+border-radius:12px;
+background:var(--card);
+line-height:1.6;
+font-size:14px;
+white-space:pre-wrap;
+overflow-wrap:anywhere;
+}
+.skyAIUser{border-right:3px solid var(--blue)}
+.skyAIBot{border-right:3px solid var(--green)}
+#skyAIForm{
+display:flex;
+gap:6px;
+padding:10px;
+border-top:1px solid var(--line);
+}
+#skyAIInput{min-width:0;flex:1}
+</style>
 
+<button id="skyAIButton" onclick="toggleSkyAI()">
+🤖 SKYTRACK AI
+</button>
+
+<div id="skyAIBox">
+  <div id="skyAIHeader">
+    🤖 SKYTRACK AI
+    <button onclick="toggleSkyAI()" style="float:left">✕</button>
+  </div>
+
+  <div id="skyAIMessages">
+    <div class="skyAIMsg skyAIBot">
+      مرحباً! أنا مساعد SkyTrack الذكي ✈️
+      اسألني أي سؤال عن الطيران.
+    </div>
+  </div>
+
+  <form id="skyAIForm">
+    <input id="skyAIInput" placeholder="اكتب سؤالك..." required>
+    <button type="submit">إرسال</button>
+  </form>
+</div>
+
+<script>
+let skyAIHistory=[];
+
+function toggleSkyAI(){
+  const box=document.getElementById("skyAIBox");
+  box.style.display=
+    box.style.display==="block"?"none":"block";
+}
+
+function addSkyAIMessage(text,type){
+  const messages=document.getElementById("skyAIMessages");
+  const div=document.createElement("div");
+  div.className="skyAIMsg "+type;
+  div.textContent=text;
+  messages.appendChild(div);
+  messages.scrollTop=messages.scrollHeight;
+  return div;
+}
+
+document.getElementById("skyAIForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+
+  const input=document.getElementById("skyAIInput");
+  const message=input.value.trim();
+  if(!message)return;
+
+  input.value="";
+  addSkyAIMessage(message,"skyAIUser");
+
+  const loading=addSkyAIMessage("جاري التفكير...","skyAIBot");
+
+  try{
+    const response=await fetch("/.netlify/functions/ai",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        message,
+        history:skyAIHistory
+      })
+    });
+
+    const data=await response.json();
+
+    if(!response.ok){
+      throw new Error(data.error||"AI error");
+    }
+
+    loading.textContent=data.reply;
+
+    skyAIHistory.push(
+      {role:"user",text:message},
+      {role:"model",text:data.reply}
+    );
+
+    skyAIHistory=skyAIHistory.slice(-10);
+
+  }catch(error){
+    loading.textContent=
+      "تعذر الاتصال بالذكاء الاصطناعي. حاول مرة ثانية.";
+  }
+});
+</script> 
 </body>
 </html>
