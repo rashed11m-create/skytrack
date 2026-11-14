@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SkyTrack 2.1</title>
+<title>SkyTrack 3.0</title>
 
 <!-- Google AdSense -->
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1943370699236128"
-     crossorigin="anonymous"></script>
+crossorigin="anonymous"></script>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
@@ -55,8 +55,7 @@ input,select{background:#10243a;color:white;border:1px solid #31516b;padding:12p
 .plan .price{font-size:30px;color:#48d5ff;font-weight:bold;margin:15px 0}
 .plan ul{padding-right:20px;line-height:2.2}
 .plan.plus{border:1px solid #c99c37;box-shadow:0 0 22px #c99c3722}
-.plan.plus h3{color:#e9bd57}
-.plan.plus .price{color:#e9bd57}
+.plan.plus h3,.plan.plus .price{color:#e9bd57}
 .full{width:100%;margin-top:10px}
 .settingrow{display:flex;justify-content:space-between;align-items:center;margin:15px 0;gap:10px}
 body.light{background:#eaf1f7;color:#152b3e}
@@ -84,7 +83,7 @@ main{padding:10px}
 
 <header>
 <div>
-<div class="logo">✈ SKYTRACK <span style="font-size:12px">2.1</span></div>
+<div class="logo">✈ SKYTRACK <span style="font-size:12px">3.0</span></div>
 <div class="subtitle">The World Above, In Real Time.</div>
 </div>
 <div class="toolbar">
@@ -97,8 +96,8 @@ main{padding:10px}
 <main>
 
 <div class="toolbar">
-<h2 id="mainTitle">مراقبة الطيران المباشرة</h2>
-<button class="secondary" onclick="showAll()">عرض الكل</button>
+<h2 id="mainTitle">مراقبة الطيران العالمية المباشرة</h2>
+<button class="secondary" onclick="showAll()">عرض العالم</button>
 <button onclick="refreshFlights()">↻ تحديث</button>
 </div>
 
@@ -106,7 +105,7 @@ main{padding:10px}
 <div class="stat"><small id="labelAircraft">الطائرات الظاهرة</small><b id="count">0</b></div>
 <div class="stat"><small id="labelAirlines">رموز النداء</small><b id="airlines">0</b></div>
 <div class="stat"><small id="labelAltitude">متوسط الارتفاع</small><b id="average">—</b></div>
-<div class="stat"><small>Coverage</small><b>100 NM</b></div>
+<div class="stat"><small>Coverage</small><b id="coverage">250 NM</b></div>
 </div>
 
 <div class="filters">
@@ -128,12 +127,11 @@ main{padding:10px}
 </div>
 
 <p class="muted" id="disclaimer">
-البيانات تعتمد على استقبال ADS-B وقد لا تظهر كل الطائرات. المسارات تُجمع أثناء فتح الموقع فقط.
+البيانات تعتمد على استقبال ADS-B وقد لا تظهر كل الطائرات. يتم تحميل الطائرات حسب المنطقة الظاهرة على الخريطة.
 </p>
 
 </main>
 
-<!-- PLUS PAGE -->
 <div class="overlay" id="plusPage">
 <div class="modal">
 <button class="close" onclick="closeModal('plusPage')">✕</button>
@@ -141,7 +139,6 @@ main{padding:10px}
 <p class="muted">ارتقِ بتجربة متابعة الطيران.</p>
 
 <div class="plans">
-
 <div class="plan">
 <h3>✈ Free</h3>
 <div class="price">0 AED</div>
@@ -150,7 +147,7 @@ main{padding:10px}
 <li>تتبع الطائرات المباشر</li>
 <li>البحث عن الرحلات</li>
 <li>تفاصيل الطائرات</li>
-<li>الخريطة المباشرة</li>
+<li>الخريطة العالمية حسب التغطية</li>
 <li>حفظ 5 طائرات بالمفضلة</li>
 </ul>
 <button class="secondary full" onclick="closeModal('plusPage')">الباقة الحالية</button>
@@ -170,16 +167,12 @@ main{padding:10px}
 </ul>
 <button class="gold full" onclick="subscribe()">اشترك في Plus</button>
 </div>
-
 </div>
 
-<p class="muted">
-الاشتراك والدفع الإلكتروني غير مفعّلين حالياً. الأسعار تجريبية، ولن يتم تحصيل أي مبلغ من هذا الزر.
-</p>
+<p class="muted">الاشتراك والدفع الإلكتروني غير مفعّلين حالياً. الأسعار تجريبية، ولن يتم تحصيل أي مبلغ من هذا الزر.</p>
 </div>
 </div>
 
-<!-- SETTINGS -->
 <div class="overlay" id="settingsPage">
 <div class="modal">
 <button class="close" onclick="closeModal('settingsPage')">✕</button>
@@ -236,7 +229,6 @@ main{padding:10px}
 
 <script>
 const API="/.netlify/functions/aircraft";
-const CENTER=[25.4052,55.5136];
 
 let aircraft=[];
 let markers={};
@@ -244,8 +236,11 @@ let history={};
 let favorites=JSON.parse(localStorage.getItem("skyFavorites")||"[]");
 let favoritesOnly=false;
 let timer=null;
+let requestTimer=null;
+let lang="ar";
+let lastRequestKey="";
 
-const map=L.map("map").setView(CENTER,7);
+const map=L.map("map").setView([20,0],2);
 let tileLayer;
 
 const tiles={
@@ -272,9 +267,8 @@ document.getElementById("settingsPage").style.display="block";
 function closeModal(id){
 document.getElementById(id).style.display="none";
 }
-
 function subscribe(){
-alert("قريباً! سيتم تفعيل الاشتراك والدفع الإلكتروني بعد ربط بوابة دفع آمنة.");
+alert("قريباً! سيتم تفعيل الاشتراك بعد ربط بوابة دفع آمنة.");
 }
 
 function changeTheme(){
@@ -360,7 +354,7 @@ if(favorites.includes(id)){
 favorites=favorites.filter(x=>x!==id);
 }else{
 if(favorites.length>=5){
-alert("الباقة المجانية تسمح بحفظ 5 طائرات. مفضلة غير محدودة ضمن Plus ستكون متاحة بعد تفعيل الاشتراك.");
+alert("الباقة المجانية تسمح بحفظ 5 طائرات. المفضلة غير المحدودة ضمن Plus ستكون متاحة بعد تفعيل الاشتراك.");
 return;
 }
 favorites.push(id);
@@ -383,9 +377,10 @@ if(markers[id])markers[id].openPopup();
 }
 
 function showAll(){
-map.setView(CENTER,7);
+map.setView([20,0],2);
 document.getElementById("search").value="";
 favoritesOnly=false;
+scheduleRefresh();
 render();
 }
 
@@ -446,12 +441,52 @@ types.map(t=>`<option value="${t}">${t}</option>`).join("");
 el.value=types.includes(old)?old:"all";
 }
 
+function getRadius(){
+let zoom=map.getZoom();
+if(zoom<=2)return 250;
+if(zoom<=4)return 220;
+if(zoom<=6)return 150;
+if(zoom<=8)return 100;
+if(zoom<=10)return 60;
+return 30;
+}
+
+function scheduleRefresh(){
+clearTimeout(requestTimer);
+requestTimer=setTimeout(refreshFlights,1500);
+}
+
 async function refreshFlights(){
-document.getElementById("status").textContent="جاري تحديث بيانات الطائرات...";
+clearTimeout(requestTimer);
+
+const center=map.getCenter();
+const radius=getRadius();
+
+const key=[
+center.lat.toFixed(2),
+center.lng.toFixed(2),
+radius
+].join(",");
+
+if(key===lastRequestKey && aircraft.length){
+return;
+}
+
+lastRequestKey=key;
+
+document.getElementById("status").textContent=
+"جاري تحميل الطائرات في المنطقة الحالية...";
+
+document.getElementById("coverage").textContent=radius+" NM";
+
 try{
-let response=await fetch(API,{cache:"no-store"});
+const url=`${API}?lat=${center.lat.toFixed(3)}&lon=${center.lng.toFixed(3)}&radius=${radius}`;
+const response=await fetch(url,{cache:"no-store"});
+
 if(!response.ok)throw Error("Data unavailable");
-let data=await response.json();
+
+const data=await response.json();
+
 aircraft=(data.ac||[]).filter(a=>
 a.lat!=null&&a.lon!=null&&a.hex&&a.lat!==0&&a.lon!==0
 );
@@ -460,6 +495,7 @@ aircraft.forEach(a=>{
 history[a.hex]=history[a.hex]||[];
 let pts=history[a.hex];
 let last=pts[pts.length-1];
+
 if(!last||last[0]!==a.lat||last[1]!==a.lon){
 pts.push([a.lat,a.lon]);
 if(pts.length>100)pts.shift();
@@ -468,49 +504,55 @@ if(pts.length>100)pts.shift();
 
 populateTypes();
 render();
+
 document.getElementById("status").textContent=
-"آخر تحديث: "+new Date().toLocaleTimeString();
+`تم تحميل ${aircraft.length} طائرة · آخر تحديث: ${new Date().toLocaleTimeString()}`;
+
 }catch(e){
+lastRequestKey="";
 document.getElementById("status").textContent=
-"تعذر الاتصال ببيانات الطائرات. حاول مرة ثانية.";
+"تعذر تحميل الطائرات. حاول مرة ثانية.";
 }
 }
 
-let lang="ar";
 function toggleLanguage(){
 if(lang==="ar"){
 lang="en";
 document.documentElement.lang="en";
 document.documentElement.dir="ltr";
 document.getElementById("langBtn").textContent="العربية";
-document.getElementById("mainTitle").textContent="LIVE FLIGHT TRACKING";
+document.getElementById("mainTitle").textContent="GLOBAL LIVE FLIGHT TRACKING";
 document.getElementById("labelAircraft").textContent="Aircraft shown";
 document.getElementById("labelAirlines").textContent="Callsign prefixes";
 document.getElementById("labelAltitude").textContent="Average altitude";
 document.getElementById("listTitle").textContent="Aircraft in coverage";
 document.getElementById("search").placeholder="Search flight, registration or ICAO";
 document.getElementById("disclaimer").textContent=
-"Data depends on ADS-B reception. Not all aircraft may be visible.";
+"Aircraft visibility depends on ADS-B coverage and data availability.";
 }else{
 lang="ar";
 document.documentElement.lang="ar";
 document.documentElement.dir="rtl";
 document.getElementById("langBtn").textContent="English";
-document.getElementById("mainTitle").textContent="مراقبة الطيران المباشرة";
+document.getElementById("mainTitle").textContent="مراقبة الطيران العالمية المباشرة";
 document.getElementById("labelAircraft").textContent="الطائرات الظاهرة";
 document.getElementById("labelAirlines").textContent="رموز النداء";
 document.getElementById("labelAltitude").textContent="متوسط الارتفاع";
 document.getElementById("listTitle").textContent="✈ الطائرات ضمن التغطية";
 document.getElementById("search").placeholder="ابحث برقم الرحلة أو التسجيل أو ICAO";
 document.getElementById("disclaimer").textContent=
-"البيانات تعتمد على استقبال ADS-B وقد لا تظهر كل الطائرات.";
+"البيانات تعتمد على استقبال ADS-B وقد لا تظهر كل الطائرات. يتم تحميل الطائرات حسب المنطقة الظاهرة على الخريطة.";
 }
 }
 
 document.getElementById("search").addEventListener("input",render);
 
+map.on("moveend",scheduleRefresh);
+map.on("zoomend",scheduleRefresh);
+
 loadSettings();
 refreshFlights();
 </script>
+
 </body>
 </html>
