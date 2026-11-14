@@ -1,1 +1,125 @@
-
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#071321">
+<title>SkyTrack | UAE Airspace</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{color-scheme:dark;--bg:#071321;--panel:#0d1d2e;--panel2:#10243a;--line:rgba(169,196,220,.13);--text:#edf5fc;--muted:#8fa6bb;--accent:#55d6be;--blue:#65a9ff}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 15% 0%,rgba(44,112,150,.17),transparent 40%),var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+header{padding:22px 5%;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:15px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:43px;height:43px;border-radius:14px;background:linear-gradient(135deg,#55d6be,#65a9ff);display:grid;place-items:center;color:#071321;font-weight:900;font-size:20px}
+.brand h1{font-size:20px;margin:0;letter-spacing:1px}
+.brand small{color:var(--muted);font-size:10px;letter-spacing:2px}
+.badge{font-size:11px;color:var(--accent);border:1px solid #55d6be55;padding:8px 12px;border-radius:30px}
+main{max-width:1250px;margin:auto;padding:28px 5% 50px}
+.intro{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:22px}
+h2{font-size:26px;margin:0 0 8px}
+p{color:var(--muted);line-height:1.7;margin:0}
+.actions{display:flex;gap:9px;flex-wrap:wrap}
+button{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:11px 15px;border-radius:10px;font-size:13px;cursor:pointer}
+button.primary{background:var(--accent);color:#071321;border:0;font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin:20px 0}
+.stat,.mapbox,.listbox{background:var(--panel);border:1px solid var(--line);border-radius:16px}
+.stat{padding:17px}
+.stat span{color:var(--muted);font-size:12px}
+.stat strong{display:block;font-size:25px;margin-top:8px}
+.section-title{display:flex;justify-content:space-between;align-items:center;margin:25px 0 12px}
+.section-title h3{font-size:16px;margin:0}
+.mapbox{overflow:hidden}
+.maphead{padding:15px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+#map{height:490px;width:100%;background:#0b1c2c}
+.listbox{margin-top:15px;padding:17px}
+.listhead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+input{background:#071321;border:1px solid var(--line);color:white;border-radius:9px;padding:10px 12px;max-width:190px;width:100%;outline:none}
+.flight{display:flex;justify-content:space-between;align-items:center;padding:13px 2px;border-bottom:1px solid var(--line);gap:12px;font-size:13px}
+.flight:last-child{border:0}
+.flight small{display:block;color:var(--muted);margin-top:5px}
+.empty{color:var(--muted);padding:22px 0;text-align:center;font-size:13px}
+.note{font-size:11px;color:var(--muted);line-height:1.8;margin-top:17px}
+footer{border-top:1px solid var(--line);padding:20px 5%;text-align:center;color:var(--muted);font-size:11px}
+.leaflet-container{font-family:inherit}
+@media(max-width:650px){header{padding:17px 5%}.intro{display:block}.actions{margin-top:16px}.stats{gap:8px}.stat{padding:12px}.stat strong{font-size:20px}#map{height:420px}.badge{font-size:9px}}
+</style>
+</head>
+<body>
+<header>
+<div class="brand"><div class="logo">ST</div><div><h1>SkyTrack</h1><small>UAE AIRSPACE</small></div></div>
+<div class="badge" id="status">بانتظار الاتصال</div>
+</header>
+<main>
+<div class="intro">
+<div><h2>حركة الطيران حول الإمارات</h2><p>خريطة مستقلة تعرض الطائرات التي ترصدها شبكة ADS-B ضمن نطاق البحث.</p></div>
+<div class="actions">
+<button class="primary" id="refresh">↻ تحديث الآن</button>
+<button id="center">⌖ العودة إلى عجمان</button>
+</div>
+</div>
+<div class="stats">
+<div class="stat"><span>الطائرات المرصودة</span><strong id="count">—</strong></div>
+<div class="stat"><span>آخر تحديث</span><strong id="updated">—</strong></div>
+<div class="stat"><span>نطاق البحث</span><strong>100 NM</strong></div>
+</div>
+<div class="section-title"><h3>الخريطة المباشرة</h3><span style="font-size:11px;color:var(--muted)">AJMAN · UAE</span></div>
+<div class="mapbox">
+<div id="map"></div>
+</div>
+<div class="listbox">
+<div class="listhead"><h3 style="margin:0;font-size:16px">الطائرات القريبة</h3><input id="search" placeholder="ابحث عن رحلة أو تسجيل"></div>
+<div id="flights"><div class="empty">يتم تجهيز الخريطة وجلب بيانات الطيران…</div></div>
+</div>
+<div class="note">يتم جلب البيانات من شبكة ADS-B مفتوحة. قد لا تظهر كل الطائرات، كما أن التغطية تعتمد على أجهزة الاستقبال القريبة. التحديث التلقائي كل 4 دقائق لتقليل الضغط على المصدر.</div>
+</main>
+<footer>بيانات الطائرات من ADSB.lol وتُتاح وفق رخصة ODbL 1.0 · الخريطة: OpenStreetMap contributors · مشروع مستقل.</footer>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const CENTER=[25.4052,55.5136];
+const map=L.map('map').setView(CENTER,7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors',maxZoom:19}).addTo(map);
+const markers=L.layerGroup().addTo(map);
+let aircraft=[];
+const $=id=>document.getElementById(id);
+function planeIcon(heading){
+return L.divIcon({className:'',html:`<div style="color:#55d6be;font-size:25px;text-shadow:0 1px 5px #000;transform:rotate(${heading||0}deg)">✈</div>`,iconSize:[28,28],iconAnchor:[14,14]});
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function renderList(){
+const q=$('search').value.toLowerCase();
+const shown=aircraft.filter(a=>(a.flight+' '+a.hex+' '+a.type).toLowerCase().includes(q));
+$('flights').innerHTML=shown.length?shown.slice(0,80).map(a=>`
+<div class="flight"><div><b>${esc(a.flight||'رحلة غير معروفة')}</b><small>${esc(a.type||'نوع غير معروف')} · ${esc(a.hex||'')}</small></div><div style="text-align:left"><b>${a.altitude==null?'—':Math.round(a.altitude).toLocaleString()+' ft'}</b><small>${a.speed==null?'—':Math.round(a.speed)+' kt'}</small></div></div>`).join(''):'<div class="empty">ما حصلنا طائرات تطابق البحث.</div>';
+}
+async function loadAircraft(){
+$('status').textContent='جاري الاتصال…';
+$('refresh').disabled=true;
+try{
+const response=await fetch('https://api.adsb.lol/v2/point/25.4052/55.5136/100');
+if(!response.ok)throw new Error('تعذر جلب البيانات');
+const data=await response.json();
+aircraft=(data.ac||[]).filter(a=>Number.isFinite(a.lat)&&Number.isFinite(a.lon));
+markers.clearLayers();
+aircraft.forEach(a=>{
+const marker=L.marker([a.lat,a.lon],{icon:planeIcon(a.track)}).addTo(markers);
+marker.bindPopup(`<b>${esc(a.flight||a.hex)}</b><br>${esc(a.t||'Unknown')}<br>Altitude: ${a.alt_baro??'—'} ft<br>Speed: ${a.gs??'—'} kt`);
+});
+$('count').textContent=aircraft.length;
+$('updated').textContent=new Date().toLocaleTimeString('ar-AE',{hour:'2-digit',minute:'2-digit'});
+$('status').textContent='متصل · مباشر';
+renderList();
+}catch(error){
+$('status').textContent='تعذر الاتصال';
+$('flights').innerHTML='<div class="empty">تعذر جلب بيانات الطائرات حالياً. حاول التحديث بعد قليل.</div>';
+}finally{$('refresh').disabled=false;}
+}
+$('refresh').addEventListener('click',loadAircraft);
+$('center').addEventListener('click',()=>map.setView(CENTER,7));
+$('search').addEventListener('input',renderList);
+loadAircraft();
+setInterval(loadAircraft,240000);
+</script>
+</body>
+</html>
