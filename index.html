@@ -2,31 +2,51 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SkyTrack | مراقبة الطيران</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkyTrack | Live Aviation</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#07111f;color:white;font-family:Arial,sans-serif}
-header{padding:20px;background:#0c1b2e;border-bottom:1px solid #20344c}
+header{background:#0c1b2e;padding:17px;border-bottom:1px solid #263d55}
 .logo{font-size:27px;font-weight:bold;color:#43c6ff;direction:ltr;text-align:right}
-.subtitle{color:#91a7bd;font-size:12px;margin-top:6px}
-.dashboard{padding:15px}
-.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
-button{background:#168ed0;color:white;border:0;border-radius:8px;padding:11px 15px;font-weight:bold}
-.stats{display:flex;gap:10px;margin-bottom:15px}
+.subtitle{font-size:12px;color:#91a7bd;margin-top:5px}
+.dashboard{padding:14px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+button{background:#168ed0;color:white;border:0;padding:11px 14px;border-radius:9px;font-weight:bold;cursor:pointer}
+.actions{display:flex;gap:7px}
+.stats{display:flex;gap:10px;margin:15px 0}
 .stat{flex:1;background:#102238;padding:14px;border-radius:12px}
 .stat small{color:#91a7bd}
-.stat h2{margin:8px 0 0;color:#43c6ff}
-.controls{display:flex;gap:8px;margin-bottom:12px}
-input{flex:1;min-width:0;background:#172b42;color:white;border:0;border-radius:8px;padding:12px}
-.status{font-size:12px;color:#91a7bd;margin:10px 0}
+.stat h2{color:#43c6ff;margin:8px 0 0}
+.controls{display:flex;gap:8px}
+input{flex:1;min-width:0;background:#172b42;color:white;border:0;border-radius:9px;padding:12px}
+.status{font-size:12px;color:#91a7bd;margin:12px 0}
 #map{height:65vh;min-height:400px}
+.plane{font-size:25px;text-shadow:0 0 8px #43c6ff}
 .leaflet-popup-content-wrapper{background:#102238;color:white;border-radius:12px}
 .leaflet-popup-tip{background:#102238}
 .detail{min-width:190px;line-height:1.9}
 .detail h3{color:#43c6ff;margin:0 0 8px}
-.plane{font-size:25px;text-shadow:0 0 8px #43c6ff}
+.overlay{display:none;position:fixed;inset:0;background:#000b;z-index:2000;overflow:auto;padding:18px}
+.panel{background:#102238;max-width:480px;margin:25px auto;padding:20px;border-radius:16px;border:1px solid #29435c}
+.panel h2{color:#43c6ff;margin-top:0}
+.section{border-top:1px solid #29435c;padding:13px 0}
+.section h3{font-size:15px;margin:0 0 12px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 0}
+select{background:#172b42;color:white;border:1px solid #36516d;padding:9px;border-radius:8px;max-width:58%}
+.switch{width:19px;height:19px;accent-color:#168ed0}
+.close{background:#42566c}
+.full{width:100%;margin-top:10px}
+body.light{background:#edf2f7;color:#142337}
+body.light header{background:#fff;border-color:#ccd7e2}
+body.light .stat{background:#fff}
+body.light .stat small{color:#52657a}
+body.light .panel{background:#fff;color:#142337}
+body.light .section{border-color:#ccd7e2}
+body.light input,body.light select{background:#edf2f7;color:#142337}
+body.light .leaflet-popup-content-wrapper{background:#fff;color:#142337}
+body.light .leaflet-popup-tip{background:#fff}
 </style>
 </head>
 <body>
@@ -37,7 +57,10 @@ input{flex:1;min-width:0;background:#172b42;color:white;border:0;border-radius:8
 <div class="dashboard">
 <div class="top">
 <strong id="pageTitle">مراقبة الطيران المباشرة</strong>
-<button onclick="toggleLanguage()" id="languageButton">English</button>
+<div class="actions">
+<button onclick="openSettings()">⚙️</button>
+<button onclick="toggleLanguage()" id="langButton">English</button>
+</div>
 </div>
 <div class="stats">
 <div class="stat">
@@ -46,104 +69,262 @@ input{flex:1;min-width:0;background:#172b42;color:white;border:0;border-radius:8
 </div>
 <div class="stat">
 <small id="rangeLabel">نطاق التغطية</small>
-<h2>100 NM</h2>
+<h2 id="range">100 NM</h2>
 </div>
 </div>
 <div class="controls">
-<input id="search" placeholder="ابحث برقم الرحلة أو التسجيل">
+<input id="search" placeholder="ابحث عن رحلة أو تسجيل">
 <button onclick="refreshFlights()">↻</button>
 </div>
 <div class="status" id="status">جاري الاتصال...</div>
 </div>
 <div id="map"></div>
+<div class="overlay" id="settings">
+<div class="panel">
+<div class="top">
+<h2 id="settingsTitle">⚙️ إعدادات SkyTrack</h2>
+<button class="close" onclick="closeSettings()" id="closeButton">إغلاق</button>
+</div>
+<div class="section">
+<h3 id="unitsTitle">📏 وحدات القياس</h3>
+<div class="row">
+<span id="altitudeLabel">وحدة الارتفاع</span>
+<select id="altUnit" onchange="saveSettings()">
+<option value="ft">Feet (ft)</option>
+<option value="m">Meters (m)</option>
+</select>
+</div>
+<div class="row">
+<span id="speedLabel">وحدة السرعة</span>
+<select id="speedUnit" onchange="saveSettings()">
+<option value="kt">Knots (kt)</option>
+<option value="kmh">km/h</option>
+</select>
+</div>
+<div class="row">
+<span id="distanceLabel">وحدة المسافة</span>
+<select id="distanceUnit" onchange="saveSettings()">
+<option value="nm">Nautical Miles</option>
+<option value="km">Kilometers</option>
+</select>
+</div>
+</div>
+<div class="section">
+<h3 id="displayTitle">🛩️ عرض البيانات</h3>
+<div class="row"><span id="showFlightLabel">رقم الرحلة</span><input class="switch" type="checkbox" id="showFlight" checked onchange="saveSettings()"></div>
+<div class="row"><span id="showTypeLabel">نوع الطائرة</span><input class="switch" type="checkbox" id="showType" checked onchange="saveSettings()"></div>
+<div class="row"><span id="showAltitudeLabel">الارتفاع</span><input class="switch" type="checkbox" id="showAltitude" checked onchange="saveSettings()"></div>
+<div class="row"><span id="showSpeedLabel">السرعة</span><input class="switch" type="checkbox" id="showSpeed" checked onchange="saveSettings()"></div>
+<div class="row"><span id="showHeadingLabel">اتجاه الطائرة</span><input class="switch" type="checkbox" id="showHeading" checked onchange="saveSettings()"></div>
+<div class="row"><span id="showRegistrationLabel">رقم التسجيل</span><input class="switch" type="checkbox" id="showRegistration" checked onchange="saveSettings()"></div>
+</div>
+<div class="section">
+<h3 id="appearanceTitle">🎨 المظهر والخريطة</h3>
+<div class="row">
+<span id="themeLabel">المظهر</span>
+<select id="theme" onchange="changeTheme()">
+<option value="dark">Dark</option>
+<option value="light">Light</option>
+</select>
+</div>
+<div class="row">
+<span id="mapLabel">نوع الخريطة</span>
+<select id="mapType" onchange="changeMap()">
+<option value="standard">OpenStreetMap</option>
+<option value="dark">Dark Map</option>
+<option value="satellite">Satellite</option>
+</select>
+</div>
+</div>
+<div class="section">
+<h3 id="updateTitle">🔄 تحديث البيانات</h3>
+<div class="row">
+<span id="intervalLabel">التحديث التلقائي</span>
+<select id="interval" onchange="changeInterval()">
+<option value="30">30 seconds</option>
+<option value="60">60 seconds</option>
+<option value="120">2 minutes</option>
+<option value="240">4 minutes</option>
+</select>
+</div>
+</div>
+<button class="full" onclick="resetSettings()" id="resetButton">استعادة الإعدادات الافتراضية</button>
+</div>
+</div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-let language="ar";
-let aircraft=[];
-let markers=[];
-const translations={
+let lang="ar",aircraft=[],markers=[],timer;
+let settings=JSON.parse(localStorage.getItem("skySettings")||"{}");
+const words={
 ar:{
 subtitle:"عالم الطيران بين يديك، لحظة بلحظة",
-title:"مراقبة الطيران المباشرة",
-aircraft:"الطائرات",
-range:"نطاق التغطية",
-search:"ابحث برقم الرحلة أو التسجيل",
-updating:"جاري تحديث الطائرات...",
-connected:"البيانات مباشرة • آخر تحديث: ",
+title:"مراقبة الطيران المباشرة",aircraft:"الطائرات",
+range:"نطاق التغطية",search:"ابحث عن رحلة أو تسجيل",
+updating:"جاري تحديث الطائرات...",connected:"البيانات مباشرة • ",
 error:"تعذر الاتصال. حاول مرة ثانية.",
-flight:"رقم الرحلة",
-registration:"رقم التسجيل",
-type:"نوع الطائرة",
-altitude:"الارتفاع",
-speed:"السرعة",
-heading:"الاتجاه",
-icao:"رمز الطائرة",
+settings:"⚙️ إعدادات SkyTrack",close:"إغلاق",
+units:"📏 وحدات القياس",altitude:"وحدة الارتفاع",
+speed:"وحدة السرعة",distance:"وحدة المسافة",
+display:"🛩️ عرض البيانات",flight:"رقم الرحلة",
+type:"نوع الطائرة",registration:"رقم التسجيل",
+heading:"اتجاه الطائرة",appearance:"🎨 المظهر والخريطة",
+theme:"المظهر",map:"نوع الخريطة",update:"🔄 تحديث البيانات",
+interval:"التحديث التلقائي",reset:"استعادة الإعدادات الافتراضية",
 unknown:"غير معروف"
 },
 en:{
 subtitle:"The World Above, In Real Time",
-title:"LIVE FLIGHT TRACKING",
-aircraft:"Aircraft",
-range:"Coverage Range",
-search:"Search flight / registration",
-updating:"Updating aircraft...",
-connected:"Live data • Updated: ",
+title:"LIVE FLIGHT TRACKING",aircraft:"Aircraft",
+range:"Coverage Range",search:"Search flight or registration",
+updating:"Updating aircraft...",connected:"Live data • ",
 error:"Connection failed. Try again.",
-flight:"Flight",
-registration:"Registration",
-type:"Aircraft Type",
-altitude:"Altitude",
-speed:"Speed",
-heading:"Heading",
-icao:"ICAO Code",
+settings:"⚙️ SkyTrack Settings",close:"Close",
+units:"📏 Measurement Units",altitude:"Altitude unit",
+speed:"Speed unit",distance:"Distance unit",
+display:"🛩️ Data Display",flight:"Flight number",
+type:"Aircraft type",registration:"Registration",
+heading:"Aircraft heading",appearance:"🎨 Appearance & Map",
+theme:"Theme",map:"Map type",update:"🔄 Data Updates",
+interval:"Auto refresh",reset:"Restore default settings",
 unknown:"Unknown"
 }
 };
+function t(){return words[lang]}
 function toggleLanguage(){
-language=language==="ar"?"en":"ar";
-document.documentElement.lang=language;
-document.documentElement.dir=language==="ar"?"rtl":"ltr";
-const t=translations[language];
-document.getElementById("subtitle").textContent=t.subtitle;
-document.getElementById("pageTitle").textContent=t.title;
-document.getElementById("aircraftLabel").textContent=t.aircraft;
-document.getElementById("rangeLabel").textContent=t.range;
-document.getElementById("search").placeholder=t.search;
-document.getElementById("languageButton").textContent=language==="ar"?"English":"العربية";
-markers.forEach((marker,i)=>marker.setPopupContent(details(aircraft[i])));
+lang=lang==="ar"?"en":"ar";
+document.documentElement.lang=lang;
+document.documentElement.dir=lang==="ar"?"rtl":"ltr";
+document.getElementById("langButton").textContent=lang==="ar"?"English":"العربية";
+renderText();
+refreshFlights();
+}
+function renderText(){
+let x=t();
+const ids={
+subtitle:"subtitle",title:"pageTitle",aircraft:"aircraftLabel",
+range:"rangeLabel",settings:"settingsTitle",close:"closeButton",
+units:"unitsTitle",altitude:"altitudeLabel",speed:"speedLabel",
+distance:"distanceLabel",display:"displayTitle",
+flight:"showFlightLabel",type:"showTypeLabel",
+registration:"showRegistrationLabel",heading:"showHeadingLabel",
+appearance:"appearanceTitle",theme:"themeLabel",map:"mapLabel",
+update:"updateTitle",interval:"intervalLabel",reset:"resetButton"
+};
+Object.entries(ids).forEach(([key,id])=>{
+document.getElementById(id).textContent=x[key];
+});
+document.getElementById("showAltitudeLabel").textContent=x.altitude;
+document.getElementById("showSpeedLabel").textContent=x.speed;
+document.getElementById("search").placeholder=x.search;
 }
 const map=L.map("map").setView([25.4052,55.5136],7);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-attribution:"© OpenStreetMap"
+let tileLayer;
+const layers={
+standard:"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+dark:"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+satellite:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+};
+function changeMap(){
+let type=document.getElementById("mapType").value;
+if(tileLayer)map.removeLayer(tileLayer);
+tileLayer=L.tileLayer(layers[type],{
+attribution:type==="satellite"?"Tiles © Esri":"© OpenStreetMap contributors"
 }).addTo(map);
+saveSettings();
+}
+function changeTheme(){
+document.body.classList.toggle("light",document.getElementById("theme").value==="light");
+saveSettings();
+}
+function openSettings(){
+document.getElementById("settings").style.display="block";
+}
+function closeSettings(){
+document.getElementById("settings").style.display="none";
+}
+function saveSettings(){
+let ids=["altUnit","speedUnit","distanceUnit","theme","mapType","interval",
+"showFlight","showType","showAltitude","showSpeed","showHeading","showRegistration"];
+ids.forEach(id=>{
+let el=document.getElementById(id);
+settings[id]=el.type==="checkbox"?el.checked:el.value;
+});
+localStorage.setItem("skySettings",JSON.stringify(settings));
+refreshFlights();
+}
+function loadSettings(){
+let ids=["altUnit","speedUnit","distanceUnit","theme","mapType","interval",
+"showFlight","showType","showAltitude","showSpeed","showHeading","showRegistration"];
+ids.forEach(id=>{
+if(settings[id]!==undefined){
+let el=document.getElementById(id);
+if(el.type==="checkbox")el.checked=settings[id];
+else el.value=settings[id];
+}
+});
+changeTheme();
+changeMap();
+changeInterval();
+}
+function resetSettings(){
+localStorage.removeItem("skySettings");
+settings={};
+location.reload();
+}
+function changeInterval(){
+clearInterval(timer);
+let seconds=Number(document.getElementById("interval").value);
+timer=setInterval(refreshFlights,seconds*1000);
+saveSettingsWithoutRefresh();
+}
+function saveSettingsWithoutRefresh(){
+let ids=["altUnit","speedUnit","distanceUnit","theme","mapType","interval",
+"showFlight","showType","showAltitude","showSpeed","showHeading","showRegistration"];
+ids.forEach(id=>{
+let el=document.getElementById(id);
+settings[id]=el.type==="checkbox"?el.checked:el.value;
+});
+localStorage.setItem("skySettings",JSON.stringify(settings));
+}
 function planeIcon(heading){
 return L.divIcon({
 className:"",
 html:`<div class="plane" style="transform:rotate(${heading||0}deg)">✈</div>`,
-iconSize:[30,30],
-iconAnchor:[15,15]
+iconSize:[30,30],iconAnchor:[15,15]
 });
 }
+function convertAltitude(a){
+if(a==null)return t().unknown;
+return document.getElementById("altUnit").value==="m"
+?Math.round(a*.3048)+" m":a+" ft";
+}
+function convertSpeed(a){
+if(a==null)return t().unknown;
+return document.getElementById("speedUnit").value==="kmh"
+?Math.round(a*1.852)+" km/h":Math.round(a)+" knots";
+}
 function details(a){
-const t=translations[language];
-const unknown=t.unknown;
-return `
-<div class="detail">
-<h3>✈ ${(a.flight||unknown).trim()}</h3>
-<b>${t.registration}:</b> ${a.r||unknown}<br>
-<b>${t.type}:</b> ${a.t||unknown}<br>
-<b>${t.altitude}:</b> ${a.alt_baro==null?unknown:a.alt_baro+" ft"}<br>
-<b>${t.speed}:</b> ${a.gs==null?unknown:Math.round(a.gs)+" knots"}<br>
-<b>${t.heading}:</b> ${a.track==null?unknown:Math.round(a.track)+"°"}<br>
-<b>${t.icao}:</b> ${a.hex||unknown}
-</div>`;
+let x=t(),html='<div class="detail">';
+if(document.getElementById("showFlight").checked)
+html+=`<h3>✈ ${(a.flight||x.unknown).trim()}</h3>`;
+if(document.getElementById("showRegistration").checked)
+html+=`<b>${x.registration}:</b> ${a.r||x.unknown}<br>`;
+if(document.getElementById("showType").checked)
+html+=`<b>${x.type}:</b> ${a.t||x.unknown}<br>`;
+if(document.getElementById("showAltitude").checked)
+html+=`<b>${x.altitude}:</b> ${convertAltitude(a.alt_baro)}<br>`;
+if(document.getElementById("showSpeed").checked)
+html+=`<b>${x.speed}:</b> ${convertSpeed(a.gs)}<br>`;
+if(document.getElementById("showHeading").checked)
+html+=`<b>${x.heading}:</b> ${a.track==null?x.unknown:Math.round(a.track)+"°"}<br>`;
+html+=`<b>ICAO:</b> ${a.hex||x.unknown}</div>`;
+return html;
 }
 async function refreshFlights(){
-const t=translations[language];
-document.getElementById("status").textContent=t.updating;
+document.getElementById("status").textContent=t().updating;
 try{
 const response=await fetch("/.netlify/functions/aircraft");
-if(!response.ok)throw new Error("Connection error");
+if(!response.ok)throw new Error();
 const data=await response.json();
 aircraft=(data.ac||[]).filter(a=>
 a.lat!=null&&a.lon!=null&&a.lat!==0&&a.lon!==0&&
@@ -152,32 +333,29 @@ a.t!=="GND"&&a.t!=="TWR"
 markers.forEach(m=>map.removeLayer(m));
 markers=[];
 aircraft.forEach(a=>{
-const marker=L.marker([a.lat,a.lon],{
-icon:planeIcon(a.track)
-}).addTo(map);
+let marker=L.marker([a.lat,a.lon],{icon:planeIcon(a.track)}).addTo(map);
 marker.bindPopup(details(a));
 markers.push(marker);
 });
 document.getElementById("count").textContent=aircraft.length;
-document.getElementById("status").textContent=t.connected+new Date().toLocaleTimeString();
-}catch(error){
-document.getElementById("status").textContent=t.error;
+document.getElementById("status").textContent=t().connected+
+new Date().toLocaleTimeString();
+}catch(e){
+document.getElementById("status").textContent=t().error;
 }
 }
 document.getElementById("search").addEventListener("input",function(){
-const q=this.value.toLowerCase().trim();
-markers.forEach((marker,i)=>{
-const a=aircraft[i];
-const info=((a.flight||"")+" "+(a.r||"")+" "+(a.hex||"")).toLowerCase();
-if(!q||info.includes(q)){
-if(!map.hasLayer(marker))marker.addTo(map);
-}else{
-if(map.hasLayer(marker))map.removeLayer(marker);
-}
+let q=this.value.toLowerCase().trim();
+markers.forEach((m,i)=>{
+let a=aircraft[i];
+let s=((a.flight||"")+" "+(a.r||"")+" "+(a.hex||"")).toLowerCase();
+if(!q||s.includes(q)){if(!map.hasLayer(m))m.addTo(map)}
+else if(map.hasLayer(m))map.removeLayer(m);
 });
 });
+renderText();
+loadSettings();
 refreshFlights();
-setInterval(refreshFlights,60000);
 </script>
 </body>
 </html>
